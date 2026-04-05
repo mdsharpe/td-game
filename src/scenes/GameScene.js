@@ -40,14 +40,16 @@ export default class GameScene extends Phaser.Scene {
   // ─── Input ─────────────────────────────────────────────────────────────────
 
   setupInput() {
-    // gameobjectdown fires before the scene's pointerdown, so we can reliably
-    // detect button clicks and suppress the tower-placement that would otherwise
-    // fire on the paired pointerup.
+    // Phaser fires gameobjectdown before the scene's pointerdown, so the
+    // suppress flag is always set before the placement check runs.
+    // Using pointerdown (not pointerup) also prevents a pointerup carried
+    // over from a previous scene (e.g. the menu's Play button) from placing
+    // a tower when the game first loads.
     this.input.on('gameobjectdown', () => {
       this._suppressTap = true;
     });
 
-    this.input.on('pointerup', (ptr) => {
+    this.input.on('pointerdown', (ptr) => {
       if (!this._suppressTap && !this.isGameOver) {
         this.tryPlaceTower(ptr.x, ptr.y);
       }
