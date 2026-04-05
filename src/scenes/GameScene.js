@@ -58,6 +58,7 @@ export default class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', (ptr) => {
       this._panStart = { screenX: ptr.x, scrollX: this.cameras.main.scrollX };
       this._dragging = false;
+      this._panelOpenAtDown = this.panelOpen; // capture before any button handler runs
     });
 
     this.input.on('pointermove', (ptr) => {
@@ -74,7 +75,7 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.input.on('pointerup', (ptr) => {
-      if (!this._dragging && !this.panelOpen && !this.isGameOver) {
+      if (!this._dragging && !this._panelOpenAtDown && !this.isGameOver) {
         const worldPt = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
         this.tryPlaceTower(worldPt.x, worldPt.y);
       }
