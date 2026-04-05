@@ -40,16 +40,18 @@ export default class GameScene extends Phaser.Scene {
   // ─── Input ─────────────────────────────────────────────────────────────────
 
   setupInput() {
-    // Capture panelOpen at pointer-down so a button closing the panel doesn't
-    // accidentally trigger tower placement on the same tap.
-    this.input.on('pointerdown', () => {
-      this._panelOpenAtDown = this.panelOpen;
+    // gameobjectdown fires before the scene's pointerdown, so we can reliably
+    // detect button clicks and suppress the tower-placement that would otherwise
+    // fire on the paired pointerup.
+    this.input.on('gameobjectdown', () => {
+      this._suppressTap = true;
     });
 
     this.input.on('pointerup', (ptr) => {
-      if (!this._panelOpenAtDown && !this.isGameOver) {
+      if (!this._suppressTap && !this.isGameOver) {
         this.tryPlaceTower(ptr.x, ptr.y);
       }
+      this._suppressTap = false;
     });
   }
 
