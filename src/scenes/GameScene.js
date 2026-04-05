@@ -2,7 +2,7 @@ import Ghost from '../entities/Ghost.js';
 import Tower from '../entities/Tower.js';
 import { WAVES } from '../config/waves.js';
 import {
-  GAME_WIDTH, GAME_HEIGHT, WORLD_WIDTH,
+  GAME_WIDTH, GAME_HEIGHT,
   LANE_Y, PATH_TOP, PATH_BOTTOM,
   CAVE_END, PLAYPARK_END, FOREST_END, HOUSE_X,
   GHOST_SPAWN_X,
@@ -10,8 +10,7 @@ import {
   PLACE_START, PLACE_END,
 } from '../config/constants.js';
 
-const TOTAL_WAVES    = WAVES.length;
-const DRAG_THRESHOLD = 6; // px of pointer movement that counts as a pan, not a tap
+const TOTAL_WAVES = WAVES.length;
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -31,56 +30,26 @@ export default class GameScene extends Phaser.Scene {
     this.panelOpen     = false;
     this.isGameOver    = false;
 
-    // Pan state
-    this._panStart  = null;
-    this._dragging  = false;
-
     this.drawBackground();
     this.createSweetDisplay();
-    this.setupCamera();
     this.setupInput();
     this.setupHUD();
     this.showWavePanel();
   }
 
-  // ─── Camera ────────────────────────────────────────────────────────────────
-
-  setupCamera() {
-    const cam = this.cameras.main;
-    cam.setBounds(0, 0, WORLD_WIDTH, GAME_HEIGHT);
-    // Start with the house and surrounding forest visible
-    cam.setScroll(WORLD_WIDTH - GAME_WIDTH, 0);
-  }
-
-  // ─── Input (tap vs pan) ────────────────────────────────────────────────────
+  // ─── Input ─────────────────────────────────────────────────────────────────
 
   setupInput() {
-    this.input.on('pointerdown', (ptr) => {
-      this._panStart = { screenX: ptr.x, scrollX: this.cameras.main.scrollX };
-      this._dragging = false;
-      this._panelOpenAtDown = this.panelOpen; // capture before any button handler runs
-    });
-
-    this.input.on('pointermove', (ptr) => {
-      if (!ptr.isDown || !this._panStart) return;
-      const dx = ptr.x - this._panStart.screenX;
-      if (Math.abs(dx) > DRAG_THRESHOLD) {
-        this._dragging = true;
-        const cam = this.cameras.main;
-        cam.setScroll(
-          Phaser.Math.Clamp(this._panStart.scrollX - dx, 0, WORLD_WIDTH - GAME_WIDTH),
-          0
-        );
-      }
+    // Capture panelOpen at pointer-down so a button closing the panel doesn't
+    // accidentally trigger tower placement on the same tap.
+    this.input.on('pointerdown', () => {
+      this._panelOpenAtDown = this.panelOpen;
     });
 
     this.input.on('pointerup', (ptr) => {
-      if (!this._dragging && !this._panelOpenAtDown && !this.isGameOver) {
-        const worldPt = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
-        this.tryPlaceTower(worldPt.x, worldPt.y);
+      if (!this._panelOpenAtDown && !this.isGameOver) {
+        this.tryPlaceTower(ptr.x, ptr.y);
       }
-      this._panStart = null;
-      this._dragging = false;
     });
   }
 
@@ -111,7 +80,7 @@ export default class GameScene extends Phaser.Scene {
 
   drawBackground() {
     // Sky
-    this.add.rectangle(0, 0, WORLD_WIDTH, GAME_HEIGHT, 0x5599cc)
+    this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x5599cc)
       .setOrigin(0).setDepth(0);
 
     // Zone backdrops
@@ -131,15 +100,15 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // Common ground & path
-    this.add.rectangle(0, PATH_BOTTOM, WORLD_WIDTH, GAME_HEIGHT - PATH_BOTTOM, 0x4a8030)
+    this.add.rectangle(0, PATH_BOTTOM, GAME_WIDTH, GAME_HEIGHT - PATH_BOTTOM, 0x4a8030)
       .setOrigin(0).setDepth(2);
-    this.add.rectangle(0, PATH_TOP, WORLD_WIDTH, PATH_BOTTOM - PATH_TOP, 0xc8a060)
+    this.add.rectangle(0, PATH_TOP, GAME_WIDTH, PATH_BOTTOM - PATH_TOP, 0xc8a060)
       .setOrigin(0).setDepth(2);
 
     // Path edge lines
     const pathEdge = this.add.graphics().setDepth(2);
     pathEdge.lineStyle(2, 0x9a7040, 0.6);
-    pathEdge.strokeRect(0, PATH_TOP, WORLD_WIDTH, PATH_BOTTOM - PATH_TOP);
+    pathEdge.strokeRect(0, PATH_TOP, GAME_WIDTH, PATH_BOTTOM - PATH_TOP);
 
     this.drawCave();
     this.drawPlaypark();
@@ -342,32 +311,32 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  // ─── HUD (fixed to screen via setScrollFactor(0)) ──────────────────────────
+  // ─── HUD ───────────────────────────────────────────────────────────────────
 
   setupHUD() {
     const hudBg = this.add.rectangle(0, 0, GAME_WIDTH, 50, 0x000000, 0.65)
-      .setOrigin(0).setDepth(10).setScrollFactor(0);
+      .setOrigin(0).setDepth(10);
 
     this.txtCrystals = this.add.text(16, 25, '', {
       fontSize: '21px', fontFamily: 'Arial', color: '#88ccff',
       stroke: '#000', strokeThickness: 3,
-    }).setOrigin(0, 0.5).setDepth(11).setScrollFactor(0);
+    }).setOrigin(0, 0.5).setDepth(11);
 
     this.txtWave = this.add.text(GAME_WIDTH / 2, 25, '', {
       fontSize: '21px', fontFamily: 'Arial', color: '#ffffff',
       stroke: '#000', strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(11).setScrollFactor(0);
+    }).setOrigin(0.5).setDepth(11);
 
     this.txtSweets = this.add.text(GAME_WIDTH - 16, 25, '', {
       fontSize: '21px', fontFamily: 'Arial', color: '#ffaacc',
       stroke: '#000', strokeThickness: 3,
-    }).setOrigin(1, 0.5).setDepth(11).setScrollFactor(0);
+    }).setOrigin(1, 0.5).setDepth(11);
 
     this.hintText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 8,
-      `Tap forest or playpark to place tower  (${TOWER_COST} 💎) · Drag to scroll`, {
+      `Tap the forest or playpark to place a tower  (costs ${TOWER_COST} 💎)`, {
       fontSize: '14px', fontFamily: 'Arial', color: '#bbbbbb',
       stroke: '#000', strokeThickness: 2,
-    }).setOrigin(0.5, 1).setDepth(11).setScrollFactor(0);
+    }).setOrigin(0.5, 1).setDepth(11);
 
     this.updateHUD();
   }
@@ -386,38 +355,29 @@ export default class GameScene extends Phaser.Scene {
     const waveNum = this.waveIndex + 1;
     const isFirst = waveNum === 1;
 
-    const makeFix = (obj) => obj.setScrollFactor(0);
+    const panel = this.add.rectangle(W / 2, H / 2, 460, 200, 0x000000, 0.80).setDepth(20);
 
-    const panel = makeFix(
-      this.add.rectangle(W / 2, H / 2, 460, 210, 0x000000, 0.80).setDepth(20)
-    );
-    const heading = makeFix(
-      this.add.text(W / 2, H / 2 - 68,
-        isFirst ? 'Ghost Tower' : `Wave ${waveNum - 1} cleared!`, {
-        fontSize: '30px', fontFamily: 'Georgia, serif', color: '#ffffff',
-      }).setOrigin(0.5).setDepth(21)
-    );
-    const sub = makeFix(
-      this.add.text(W / 2, H / 2 - 26,
-        `Wave ${waveNum} of ${TOTAL_WAVES} is coming…`, {
-        fontSize: '20px', fontFamily: 'Arial', color: '#ffeeaa',
-      }).setOrigin(0.5).setDepth(21)
-    );
-    const hint = makeFix(
-      this.add.text(W / 2, H / 2 + 12,
-        `💎 ${this.crystals} crystals — place your towers!\nDrag the screen to explore the path.`, {
-        fontSize: '15px', fontFamily: 'Arial', color: '#88ccff',
-        align: 'center',
-      }).setOrigin(0.5).setDepth(21)
-    );
-    const btn = makeFix(
-      this.add.text(W / 2, H / 2 + 68,
-        `  Start Wave ${waveNum}  `, {
-        fontSize: '26px', fontFamily: 'Arial', color: '#ffffff',
-        backgroundColor: '#336633',
-        padding: { x: 18, y: 10 },
-      }).setOrigin(0.5).setDepth(21).setInteractive({ useHandCursor: true })
-    );
+    const heading = this.add.text(W / 2, H / 2 - 65,
+      isFirst ? 'Ghost Tower' : `Wave ${waveNum - 1} cleared!`, {
+      fontSize: '30px', fontFamily: 'Georgia, serif', color: '#ffffff',
+    }).setOrigin(0.5).setDepth(21);
+
+    const sub = this.add.text(W / 2, H / 2 - 24,
+      `Wave ${waveNum} of ${TOTAL_WAVES} is coming…`, {
+      fontSize: '20px', fontFamily: 'Arial', color: '#ffeeaa',
+    }).setOrigin(0.5).setDepth(21);
+
+    const hint = this.add.text(W / 2, H / 2 + 14,
+      `💎 ${this.crystals} crystals — place your towers!`, {
+      fontSize: '15px', fontFamily: 'Arial', color: '#88ccff',
+    }).setOrigin(0.5).setDepth(21);
+
+    const btn = this.add.text(W / 2, H / 2 + 62,
+      `  Start Wave ${waveNum}  `, {
+      fontSize: '26px', fontFamily: 'Arial', color: '#ffffff',
+      backgroundColor: '#336633',
+      padding: { x: 18, y: 10 },
+    }).setOrigin(0.5).setDepth(21).setInteractive({ useHandCursor: true });
 
     btn.on('pointerover', () => btn.setStyle({ backgroundColor: '#448844' }));
     btn.on('pointerout',  () => btn.setStyle({ backgroundColor: '#336633' }));
