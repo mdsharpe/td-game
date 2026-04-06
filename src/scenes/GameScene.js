@@ -1,5 +1,7 @@
 import Ghost from '../entities/Ghost.js';
-import Tower from '../entities/Tower.js';
+import LaserTower from '../entities/LaserTower.js';
+import IceTower from '../entities/IceTower.js';
+import CannonTower from '../entities/CannonTower.js';
 import { WAVES } from '../config/waves.js';
 import {
   GAME_WIDTH, GAME_HEIGHT,
@@ -8,6 +10,7 @@ import {
   GHOST_SPAWN_X,
   STARTING_SWEETS, STARTING_CRYSTALS, TOWER_COST,
   PLACE_START, PLACE_END,
+  TOWER_TYPES,
 } from '../config/constants.js';
 
 const TOTAL_WAVES = WAVES.length;
@@ -29,6 +32,7 @@ export default class GameScene extends Phaser.Scene {
     this.spawnElapsed  = 0;
     this.panelOpen     = false;
     this.isGameOver    = false;
+    this.selectedTowerType = 'laser';  // Default tower type
 
     this.drawBackground();
     this.createSweetDisplay();
@@ -62,8 +66,9 @@ export default class GameScene extends Phaser.Scene {
     if (wy >= PATH_TOP - 8)                 return;
     if (wy < 52)                            return;
 
-    if (this.crystals < TOWER_COST) {
-      this.floatText(wx, wy, `Need ${TOWER_COST} 💎`, '#ff8844');
+    const towerConfig = TOWER_TYPES[this.selectedTowerType];
+    if (this.crystals < towerConfig.cost) {
+      this.floatText(wx, wy, `Need ${towerConfig.cost} 💎`, '#ff8844');
       return;
     }
 
@@ -74,10 +79,24 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    this.crystals -= TOWER_COST;
-    this.towers.push(new Tower(this, wx, wy));
+    this.crystals -= towerConfig.cost;
+    const tower = this.createTowerByType(this.selectedTowerType, wx, wy);
+    this.towers.push(tower);
     this.updateHUD();
-    this.floatText(wx, wy - 28, `-${TOWER_COST} 💎`, '#88bbff');
+    this.floatText(wx, wy - 28, `-${towerConfig.cost} 💎`, '#88bbff');
+  }
+
+  createTowerByType(towerType, x, y) {
+    switch (towerType) {
+      case 'laser':
+        return new LaserTower(this, x, y);
+      case 'ice':
+        return new IceTower(this, x, y);
+      case 'cannon':
+        return new CannonTower(this, x, y);
+      default:
+        return new LaserTower(this, x, y);
+    }
   }
 
   // ─── Background ────────────────────────────────────────────────────────────
@@ -241,8 +260,30 @@ export default class GameScene extends Phaser.Scene {
 
   drawHouse() {
     const hx = HOUSE_X;
-    const gy = PATH_TOP;
+    const baseGy = PATH_TOP;
+    const hillHeight = 80;
+    const gy = baseGy - hillHeight;  // House sits on top of the hill
     const g  = this.add.graphics().setDepth(3);
+
+    // Draw hill
+    g.fillStyle(0x5a9a3a);
+    // Use ellipse to create rounded hill shape
+    g.beginPath();
+    g.moveTo(hx - 50, baseGy);
+    // Approximate curved shape with multiple line segments
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10;
+      const x = hx - 50 + t * 248;  // left to right
+      const y = baseGy - Math.sin(t * Math.PI) * hillHeight;
+      if (i === 0) {
+        g.moveTo(x, y);
+      } else {
+        g.lineTo(x, y);
+      }
+    }
+    g.lineTo(hx + 198, baseGy);
+    g.lineTo(hx - 50, baseGy);
+    g.fillPath();
 
     // House body
     g.fillStyle(0xf0ddb0);
@@ -293,13 +334,14 @@ export default class GameScene extends Phaser.Scene {
   // ─── Sweet display ─────────────────────────────────────────────────────────
 
   createSweetDisplay() {
-    // 10 sweet icons arranged in a 5×2 grid near the house door, at ground level.
+    // 10 sweet icons arranged in a 5×2 grid near the house door on the hill.
     // Visible from outside as a pile on the doorstep / just inside.
+    const hillHeight = 80;
     this.sweetIcons = [];
     for (let row = 0; row < 2; row++) {
       for (let col = 0; col < 5; col++) {
         const x = HOUSE_X + 20 + col * 20;
-        const y = PATH_TOP - 8 - row * 18;
+        const y = PATH_TOP - hillHeight - 8 - row * 18;
         const icon = this.add.image(x, y, 'sweet-icon')
           .setScale(0.75)
           .setDepth(5);
@@ -336,8 +378,10 @@ export default class GameScene extends Phaser.Scene {
       stroke: '#000', strokeThickness: 3,
     }).setOrigin(1, 0.5).setDepth(11);
 
-    this.hintText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 8,
-      `Tap the forest or playpark to place a tower  (costs ${TOWER_COST} 💎)`, {
+    // Tower selection buttons below main HUD
+    this.createTowerButtons();
+
+    this.hintText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 8, '', {
       fontSize: '14px', fontFamily: 'Arial', color: '#bbbbbb',
       stroke: '#000', strokeThickness: 2,
     }).setOrigin(0.5, 1).setDepth(11);
@@ -345,10 +389,82 @@ export default class GameScene extends Phaser.Scene {
     this.updateHUD();
   }
 
+  createTowerButtons() {
+    const towerTypes = Object.keys(TOWER_TYPES);
+    const buttonWidth = 100;
+    const buttonHeight = 40;
+    const spacing = 12;
+    const totalWidth = towerTypes.length * buttonWidth + (towerTypes.length - 1) * spacing;
+    const startX = (GAME_WIDTH - totalWidth) / 2;
+    const startY = 58;
+
+    this.towerButtons = {};
+
+    towerTypes.forEach((typeKey, index) => {
+      const config = TOWER_TYPES[typeKey];
+      const x = startX + index * (buttonWidth + spacing);
+      const y = startY;
+
+      // Button background
+      const buttonBg = this.add.rectangle(x, y, buttonWidth, buttonHeight, 0x333333, 0.8)
+        .setOrigin(0)
+        .setDepth(10)
+        .setInteractive({ useHandCursor: true });
+
+      // Button text (icon + name + cost)
+      const buttonText = this.add.text(x + buttonWidth / 2, y + buttonHeight / 2, 
+        `${config.icon}\n${config.name}\n${config.cost}💎`, {
+        fontSize: '12px',
+        fontFamily: 'Arial',
+        color: '#ffffff',
+        align: 'center',
+        stroke: '#000',
+        strokeThickness: 2,
+      }).setOrigin(0.5).setDepth(11);
+
+      // Store references
+      this.towerButtons[typeKey] = { bg: buttonBg, text: buttonText };
+
+      // Click handler
+      buttonBg.on('pointerdown', () => {
+        this.selectTowerType(typeKey);
+      });
+
+      buttonBg.on('pointerover', () => {
+        buttonBg.setFillStyle(0x555555);
+      });
+
+      buttonBg.on('pointerout', () => {
+        buttonBg.setFillStyle(this.selectedTowerType === typeKey ? 0x666666 : 0x333333);
+      });
+    });
+
+    // Highlight initial selection
+    this.updateTowerButtonStates();
+  }
+
+  selectTowerType(typeKey) {
+    this.selectedTowerType = typeKey;
+    this.updateTowerButtonStates();
+    this.updateHUD();
+  }
+
+  updateTowerButtonStates() {
+    Object.keys(this.towerButtons).forEach(typeKey => {
+      const isSelected = typeKey === this.selectedTowerType;
+      this.towerButtons[typeKey].bg.setFillStyle(isSelected ? 0x88ccff : 0x333333);
+      this.towerButtons[typeKey].text.setColor(isSelected ? '#000000' : '#ffffff');
+    });
+  }
+
   updateHUD() {
     this.txtCrystals.setText(`💎 ${this.crystals}`);
     this.txtWave.setText(`Wave ${this.waveIndex + 1} / ${TOTAL_WAVES}`);
     this.txtSweets.setText(`🍬 ${this.sweetsInHouse} / ${STARTING_SWEETS}`);
+    
+    // Update hint text based on selected tower
+    const towerConfig = TOWER_TYPES[this.selectedTowerType];
+    this.hintText.setText(`Tap the forest or playpark to place a ${towerConfig.name} tower  (costs ${towerConfig.cost} 💎)`);
   }
 
   // ─── Wave overlay panel (fixed to screen) ──────────────────────────────────

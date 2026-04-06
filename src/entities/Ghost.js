@@ -21,6 +21,7 @@ export default class Ghost {
     this.type     = type;
     this.state    = 'walking'; // walking | retreating | dead
     this.hasSweet = false;
+    this.slowMultiplier = 1; // Slowed by ice towers
 
     const s = STATS[type];
     if (!s) throw new Error(`Unknown enemy type: "${type}"`);
@@ -46,7 +47,8 @@ export default class Ghost {
   }
 
   get speed() {
-    return this.hasSweet ? this.baseSpeed * CARRY_SPEED_MULT : this.baseSpeed;
+    let speed = this.hasSweet ? this.baseSpeed * CARRY_SPEED_MULT : this.baseSpeed;
+    return speed * this.slowMultiplier;
   }
 
   update(delta) {

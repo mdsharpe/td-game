@@ -38,3 +38,34 @@ export const TOWER_DAMAGE    = 1;
 
 // Ghost penalty when carrying a sweet
 export const CARRY_SPEED_MULT = 0.5;
+
+// Tower types and their properties
+export const TOWER_TYPES = {
+  laser: {
+    name: 'Laser',
+    cost: 20,
+    range: 220,
+    fireRate: 1500,
+    damage: 1,
+    icon: '🔴'
+  },
+  ice: {
+    name: 'Ice',
+    cost: 30,
+    range: 180,
+    fireRate: 2000,
+    damage: 0.5,
+    slowFactor: 0.3,
+    slowDuration: 1500,
+    icon: '❄️'
+  },
+  cannon: {
+    name: 'Cannon',
+    cost: 40,
+    range: 150,
+    fireRate: 3000,
+    damage: 3,
+    areaRadius: 80,
+    icon: '💥'
+  }
+};

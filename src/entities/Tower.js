@@ -1,14 +1,16 @@
-import { TOWER_RANGE, TOWER_FIRE_RATE, TOWER_DAMAGE } from '../config/constants.js';
+import { TOWER_TYPES } from '../config/constants.js';
 
 const LASER_DURATION = 150; // ms laser beam stays visible
 
 export default class Tower {
-  constructor(scene, x, y) {
-    this.scene     = scene;
-    this.x         = x;
-    this.y         = y;
-    this.fireTimer = 0;
-    this.laserAge  = LASER_DURATION + 1; // start with no laser showing
+  constructor(scene, x, y, towerType = 'laser') {
+    this.scene       = scene;
+    this.x           = x;
+    this.y           = y;
+    this.towerType   = towerType;
+    this.config      = TOWER_TYPES[towerType];
+    this.fireTimer   = 0;
+    this.laserAge    = LASER_DURATION + 1; // start with no laser showing
 
     this.sprite = scene.add.image(x, y, 'tower')
       .setDepth(4)
@@ -25,7 +27,7 @@ export default class Tower {
       this.laser.clear();
     }
 
-    if (this.fireTimer >= TOWER_FIRE_RATE) {
+    if (this.fireTimer >= this.config.fireRate) {
       this.tryFire();
     }
   }
@@ -36,7 +38,7 @@ export default class Tower {
 
     this.fireTimer = 0;
     this.drawLaser(target);
-    target.takeDamage(TOWER_DAMAGE);
+    target.takeDamage(this.config.damage);
   }
 
   pickTarget() {
@@ -50,7 +52,7 @@ export default class Tower {
 
     for (const ghost of ghosts) {
       const dist = Phaser.Math.Distance.Between(this.x, this.y, ghost.sprite.x, ghost.sprite.y);
-      if (dist > TOWER_RANGE) continue;
+      if (dist > this.config.range) continue;
 
       // Score: walking ghosts score higher; further along = higher x
       const dirBonus = ghost.state === 'walking' ? 1000 : 0;
